@@ -20,7 +20,7 @@ Resale Photo Enhancer is a production-ready, highly-optimized AI web application
 - **Responsive & Constrained UX** — Layout height constraints prevent page overflow, creating an elegant webapp interface that scrolls properly on both desktop and mobile.
 - **Extensible API** — Easily swap or adapt underlying model features without breaking layout styling.
 
-![Resale Photo Enhancer Studio](https://cdn.muapi.ai/data/2/861070208008/Screenshot_2026-05-20_192435.png)
+![Resale Photo Enhancer Studio](https://cdn.muapi.ai/data/2/240218598562/Screenshot_2026-05-20_194450.png)
 
 ## ✨ Core Features
 
