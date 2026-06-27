@@ -409,7 +409,11 @@ export default function HomePage() {
               <button
                 onClick={handleEnhance}
                 disabled={generating || !inputUrl}
-                className="w-full py-2 bg-primary hover:bg-primary-hover disabled:bg-neutral-100 disabled:text-neutral-400 disabled:cursor-not-allowed text-primary-btn-text font-semibold text-xs rounded-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                className={`w-full py-2 font-semibold text-xs rounded-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm ${
+                  generating || !inputUrl
+                    ? "bg-neutral-100 text-neutral-400 cursor-not-allowed"
+                    : "bg-primary hover:bg-primary-hover text-primary-btn-text"
+                }`}
               >
                 {generating ? (
                   <>
