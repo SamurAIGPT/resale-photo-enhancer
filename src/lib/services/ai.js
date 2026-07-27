@@ -16,11 +16,15 @@ export const AIService = {
   /**
    * Submit an image enhancement task to MuAPI
    */
-  async generate(userId, { inputUrl, templateImageUrl, prompt, aspectRatio = "Auto", templateName = null }) {
-    const cost = this.getCreditCost();
-    await UserService.deductCredits(userId, cost);
+  async generate(userId, { inputUrl, templateImageUrl, prompt, aspectRatio = "Auto", templateName = null, customApiKey = null }) {
+    const isUsingCustomKey = Boolean(customApiKey && customApiKey.trim().length > 0);
+    const cost = isUsingCustomKey ? 0 : this.getCreditCost();
 
-    const apiKey = config.ai.apiKey;
+    if (!isUsingCustomKey && cost > 0) {
+      await UserService.deductCredits(userId, cost);
+    }
+
+    const apiKey = isUsingCustomKey ? customApiKey.trim() : config.ai.apiKey;
     if (!apiKey) throw new Error("MUAPIAPP_API_KEY or HEADSHOT_API_KEY is not configured");
 
     // Submit task
@@ -43,14 +47,18 @@ export const AIService = {
 
     if (!submitRes.ok) {
       const errorText = await submitRes.text();
-      // Refund credits on failure before throwing
-      await UserService.addCredits(userId, cost);
+      // Refund credits on failure if deducted
+      if (!isUsingCustomKey && cost > 0) {
+        await UserService.addCredits(userId, cost);
+      }
       throw new Error(`API Submission Failed: ${submitRes.status} ${errorText}`);
     }
 
     const { request_id } = await submitRes.json();
     if (!request_id) {
-      await UserService.addCredits(userId, cost);
+      if (!isUsingCustomKey && cost > 0) {
+        await UserService.addCredits(userId, cost);
+      }
       throw new Error("No request_id received from API");
     }
 
@@ -73,7 +81,7 @@ export const AIService = {
   /**
    * Universal method to process AI results from polling or webhooks
    */
-  async processResult(requestId, result) {
+  async processResult(requestId, result, customApiKey = null) {
     const enhancement = await prisma.enhancement.findUnique({
       where: { requestId }
     });
@@ -88,6 +96,8 @@ export const AIService = {
     if (enhancement.status === "failed") {
       return { status: "failed", error: enhancement.error };
     }
+
+    const isUsingCustomKey = Boolean(customApiKey && customApiKey.trim().length > 0);
 
     // Check if result indicates finished
     const status = result.status || result.state;
@@ -114,8 +124,10 @@ export const AIService = {
           error: errorMsg,
         }
       });
-      // Refund credit on failure
-      await UserService.addCredits(enhancement.userId, this.getCreditCost());
+      // Refund credit on failure if not using custom key
+      if (!isUsingCustomKey) {
+        await UserService.addCredits(enhancement.userId, this.getCreditCost());
+      }
       return { status: "failed", error: updated.error };
     }
 
@@ -125,13 +137,13 @@ export const AIService = {
   /**
    * Check status of generation (either from database or polling MuAPI API)
    */
-  async checkStatus(requestId, userId) {
+  async checkStatus(requestId, userId, customApiKey = null) {
     // First check if we already have it in DB
-    const res = await this.processResult(requestId, {});
+    const res = await this.processResult(requestId, {}, customApiKey);
     if (res && res.status !== "processing") return res;
 
     // Fallback: poll MuAPI prediction result endpoint
-    const apiKey = config.ai.apiKey;
+    const apiKey = (customApiKey && customApiKey.trim().length > 0) ? customApiKey.trim() : config.ai.apiKey;
     if (!apiKey) throw new Error("API Key is not configured");
 
     try {
@@ -145,7 +157,7 @@ export const AIService = {
 
       if (res.ok) {
         const result = await res.json();
-        return await this.processResult(requestId, result);
+        return await this.processResult(requestId, result, customApiKey);
       }
     } catch (e) {
       console.error("Polling error:", e);
